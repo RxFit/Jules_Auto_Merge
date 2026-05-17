@@ -1,0 +1,92 @@
+# VibecOPS — Jules Task Assignment
+# Authorized Jules account: daniel.trejo.eclectic@gmail.com (100 tasks/day)
+# Trigger: Push STATE.md → auto-creates GitHub Issue → assigns Jules
+
+name: Assign Jules to STATE.md Task
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'STATE.md'
+  workflow_dispatch:
+    inputs:
+      task_title:
+        description: 'Task title for Jules'
+        required: false
+        default: 'VibecOPS Task'
+
+jobs:
+  assign-jules:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse STATE.md for pending tasks
+        id: parse
+        run: |
+          if [ ! -f STATE.md ]; then
+            echo "No STATE.md found — skipping"
+            echo "has_task=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          TASK=$(grep -m1 '- \[ \]' STATE.md | sed 's/- \[ \] //' | head -c 200)
+          FEATURE=$(grep -m1 '^# FEATURE:' STATE.md | sed 's/# FEATURE: //')
+          CONTEXT=$(grep -m1 '\*\*Global Context' STATE.md | sed 's/.*\*\*Global Context[^:]*\*\*:*\s*//' | head -c 400)
+
+          if [ -z "$TASK" ]; then
+            echo "No pending tasks found in STATE.md"
+            echo "has_task=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "has_task=true" >> $GITHUB_OUTPUT
+          echo "task=$TASK" >> $GITHUB_OUTPUT
+          echo "feature=$FEATURE" >> $GITHUB_OUTPUT
+          echo "context=$CONTEXT" >> $GITHUB_OUTPUT
+
+      - name: Create Issue and Assign Jules
+        if: steps.parse.outputs.has_task == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const task    = `${{ steps.parse.outputs.task }}`;
+            const feature = `${{ steps.parse.outputs.feature }}`;
+            const context = `${{ steps.parse.outputs.context }}`;
+            const repo    = context.github.repo;
+
+            const body = [
+              `## VibecOPS Jules Task`,
+              ``,
+              `**Feature:** ${feature}`,
+              `**Repo:** ${repo.owner}/${repo.repo}`,
+              `**Primary Account:** daniel.trejo.eclectic@gmail.com`,
+              ``,
+              `### Task`,
+              task,
+              ``,
+              `### Global Context`,
+              context,
+              ``,
+              `### Instructions`,
+              `- Work exclusively on the task described above`,
+              `- Target branch: \`main\``,
+              `- After completing, open a PR — the auto-merge workflow will handle the rest`,
+              `- Mark the task \`[x]\` in STATE.md in your PR`,
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              ...repo,
+              title: `[Jules] ${task.substring(0, 80)}`,
+              body,
+              labels: ['jules', 'vibecops', 'auto-merge'],
+            });
+
+            core.info(`Created issue #${issue.data.number}: ${issue.data.html_url}`);

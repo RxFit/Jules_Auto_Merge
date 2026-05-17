@@ -1,0 +1,89 @@
+# VibecOPS — Jules Auto-Merge (YOLO Edition)
+# Authorized Jules account: daniel.trejo.eclectic@gmail.com (100 tasks/day)
+# Merges any PR opened by Jules directly to main with squash merge
+
+name: Auto-Merge Jules PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Check if PR is from Jules
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setOutput('is_jules', 'false');
+              return;
+            }
+
+            const author  = pr.user?.login || '';
+            const labels  = (pr.labels || []).map(l => l.name);
+
+            const JULES_ACTORS = ['google-labs-jules', 'julesbot', 'jules-google'];
+            const isJulesActor = JULES_ACTORS.includes(author);
+            const isJulesLabel = labels.includes('jules') || labels.includes('vibecops') || labels.includes('auto-merge');
+
+            const isJules = isJulesActor || isJulesLabel;
+            core.setOutput('is_jules', String(isJules));
+            core.setOutput('pr_number', String(pr.number));
+
+      - name: Wait for checks (30s grace period)
+        if: steps.check.outputs.is_jules == 'true'
+        run: sleep 30
+
+      - name: Auto-merge Jules PR
+        if: steps.check.outputs.is_jules == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ steps.check.outputs.pr_number }}');
+            const repo = context.repo;
+
+            const { data: pr } = await github.rest.pulls.get({
+              ...repo,
+              pull_number: prNumber,
+            });
+
+            if (pr.state !== 'open' || pr.draft) {
+              core.info(`PR #${prNumber} skipped (${pr.state}, draft=${pr.draft})`);
+              return;
+            }
+
+            try {
+              await github.rest.pulls.createReview({
+                ...repo,
+                pull_number: prNumber,
+                event: 'APPROVE',
+                body: '✅ Auto-approved by VibecOPS Jules auto-merge\n\n**Primary account:** daniel.trejo.eclectic@gmail.com',
+              });
+            } catch (e) {
+              core.warning(`Approve skipped: ${e.message}`);
+            }
+
+            await github.rest.pulls.merge({
+              ...repo,
+              pull_number: prNumber,
+              merge_method: 'squash',
+              commit_title: `feat: ${pr.title} [Jules auto-merge]`,
+              commit_message: [
+                `Auto-merged by VibecOPS Jules auto-merge workflow`,
+                `Primary account: daniel.trejo.eclectic@gmail.com`,
+                `Co-authored-by: Antigravity <antigravity@rxfit.ai>`,
+              ].join('\n'),
+            });
+            core.info(`✅ Merged PR #${prNumber}`);

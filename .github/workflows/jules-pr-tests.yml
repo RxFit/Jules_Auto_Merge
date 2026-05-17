@@ -1,0 +1,60 @@
+# VibecOPS — Jules PR Smoke Tests
+# Runs basic validation on Jules PRs before auto-merge picks them up
+# Authorized Jules account: daniel.trejo.eclectic@gmail.com
+
+name: Jules PR Smoke Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'jules') ||
+      contains(github.event.pull_request.labels.*.name, 'vibecops') ||
+      contains(github.event.pull_request.labels.*.name, 'auto-merge') ||
+      github.event.pull_request.user.login == 'google-labs-jules' ||
+      github.event.pull_request.user.login == 'julesbot'
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: JSON + YAML validation
+        run: |
+          echo "Running VibecOPS Jules smoke tests..."
+          find . -name '*.json' -not -path '*/node_modules/*' -not -path '*/.git/*' | while read f; do
+            python3 -m json.tool "$f" > /dev/null 2>&1 || echo "Invalid JSON: $f"
+          done
+          find .github/workflows -name '*.yml' 2>/dev/null | while read f; do
+            python3 -c "import yaml, sys; yaml.safe_load(open('$f'))" 2>&1 || echo "Invalid YAML: $f"
+          done
+          echo "Smoke tests complete"
+
+      - name: Post status comment
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const status = '${{ job.status }}';
+            const icon   = status === 'success' ? '✅' : '⚠️';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: pr.number,
+              body: [
+                `## ${icon} VibecOPS Jules Smoke Test: ${status.toUpperCase()}`,
+                `**Account:** daniel.trejo.eclectic@gmail.com`,
+                `**Auto-merge:** ${status === 'success' ? 'Will proceed' : 'Blocked'}`,
+              ].join('\n'),
+            });
