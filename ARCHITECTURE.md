@@ -1,15 +1,20 @@
 # VibecOPS Architecture — Pillar 1: The Jules Auto-Merge Assembly Line
 
+> **Historical design notice (2026-09-04):** The repo-local
+> `auto-merge-jules.yml` workflow described by the original design is retired
+> under T-163. Do not redeploy it. Current merge execution belongs to the
+> centralized exact-head executor in `RxFit/rxfit-command-center` (PR #173).
+
 > **Repository:** [RxFit/Jules_Auto_Merge](https://github.com/RxFit/Jules_Auto_Merge)
-> **Status:** ACTIVE — Phase 1 Design Complete
-> **Last Updated:** 2026-05-16
+> **Status:** RETIRED — repo-local merge workflow superseded
+> **Last Updated:** 2026-09-04
 > **Maintained by:** Antigravity (local agent) + Jules (GitHub-connected agent)
 
 ---
 
 ## 1. Executive Summary
 
-This document describes **Pillar 1** of the VibecOPS autonomous workflow — the *Bite-Sizer Assembly Line*. It transforms Jules from an unconstrained, context-flooded marathon runner into a disciplined, **assembly-line worker** that executes one micro-task at a time, auto-merges the result, marks it done, and chains the next task automatically.
+This document describes the historical **Pillar 1** VibecOPS workflow — the *Bite-Sizer Assembly Line*. It transforms Jules from an unconstrained, context-flooded marathon runner into a disciplined, **assembly-line worker** that executes one micro-task at a time, submits the result to the centralized reviewed merge path, marks it done only after success, and chains the next task automatically.
 
 This pillar directly solves three critical failure modes:
 
@@ -64,7 +69,7 @@ This pillar directly solves three critical failure modes:
                   ┌───────────▼──────────┐
                   │   RxFit/App_1..12    │
                   │   - Jules PR/commit  │
-                  │   - YOLO auto-merge  │
+                  │   - Reviewed merge   │
                   │   - STATE.md commit  │
                   └──────────────────────┘
 ```
@@ -188,7 +193,7 @@ Threshold: 4 edits on same file across last 15 commits → HALT
 ```
 [VIBECOPS STRICT DIRECTIVE]
 Your ONLY objective for this run is: TASK 3: Add signature verification to the webhook endpoint.
-Do not touch anything outside of this scope. Output code, execute your operations, auto-merge, and exit.
+Do not touch anything outside of this scope. Output code, execute your operations, submit the result for reviewed merge, and exit.
 
 ---
 Global Context:
@@ -466,7 +471,7 @@ function handleFileEvent(filePath, eventType) {
                 if (nextTask) {
                     const originalPrompt = ticket.Prompt || ticket._VibecOpsOriginal || '';
                     ticket._VibecOpsOriginal = originalPrompt;
-                    ticket.Prompt = `[VIBECOPS STRICT DIRECTIVE]\nYour ONLY objective for this run is: ${nextTask.text}\nDo not touch anything outside of this scope. Output code, execute your operations, auto-merge, and exit.\n\n---\nGlobal Context:\n${originalPrompt}`;
+                    ticket.Prompt = `[VIBECOPS STRICT DIRECTIVE]\nYour ONLY objective for this run is: ${nextTask.text}\nDo not touch anything outside of this scope. Output code, execute your operations, submit the result for reviewed merge, and exit.\n\n---\nGlobal Context:\n${originalPrompt}`;
                     activeTaskText = nextTask.text;
                     log(`[BITE-SIZER] Scoped ticket to micro-task: ${activeTaskText}`);
                 }

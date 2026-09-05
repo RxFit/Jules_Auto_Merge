@@ -15,32 +15,42 @@ Both the **Desktop GUI Launcher** and **vibecops.rx-fit.com** route through the 
 
 ## Workflow Files
 
-All active repos deploy three canonical workflow files:
+The repo-local `auto-merge-jules.yml` workflow was retired under T-163 on
+2026-09-04. The affected copies were invalid, base64-encoded files, and their
+unreviewed merge behavior has been superseded by the centralized, exact-head
+merge executor in `RxFit/rxfit-command-center` (PR #173).
+
+Active repositories may still use the task-assignment and smoke-test workflows.
+Merge decisions and execution no longer live in each repository:
 
 | Workflow | File | Trigger |
 |---|---|---|
 | **Assign Jules** | `assign-jules.yml` | Push to `STATE.md` |
-| **Auto-Merge** | `auto-merge-jules.yml` | PR opened by Jules |
+| **Reviewed Merge** | Central command-center executor | Eligible PR passes exact-head review and repository gates |
 | **Smoke Tests** | `jules-pr-tests.yml` | PR opened on labeled branches |
 
-## Jules Actor Detection
+## Legacy Jules Actor Detection (Retired)
 
-The auto-merge workflow detects Jules PRs by:
+The deleted workflow used the following broad actor/label detection. It is
+retained here only as migration history and must not be redeployed:
 1. PR author login: `google-labs-jules`, `julesbot`, `jules-google`
 2. PR labels: `jules`, `vibecops`, `auto-merge`
 
-## Repos Covered
+## Historical Repos Covered
 
-| Repo | Tag | Workflows |
+This table records the prior rollout footprint. It does not indicate that the
+retired auto-merge workflow remains deployed.
+
+| Repo | Tag | Legacy rollout |
 |---|---|---|
-| `RxFit/RxFit-Concierge` | MAIN | ✅ Deployed |
-| `RxFit/AppRxFitai` | MOBILE | ✅ Deployed |
-| `RxFit/notebookrx` | AI | ✅ Deployed |
-| `RxFit/notebookparser` | AI | ✅ Deployed |
-| `RxFit/SDM-Headless-Enterprise` | OPS | ✅ Deployed |
-| `RxFit/jade-cos` | AGENT | ✅ Deployed |
-| `RxFit/Xana.AI` | TOOLS | ✅ Deployed |
-| `RxFit/Jules_Auto_Merge` | VIBECOPS | ✅ Deployed |
+| `RxFit/RxFit-Concierge` | MAIN | Historical |
+| `RxFit/AppRxFitai` | MOBILE | Historical |
+| `RxFit/notebookrx` | AI | Historical |
+| `RxFit/notebookparser` | AI | Historical |
+| `RxFit/SDM-Headless-Enterprise` | OPS | Historical |
+| `RxFit/jade-cos` | AGENT | Historical |
+| `RxFit/Xana.AI` | TOOLS | Historical |
+| `RxFit/Jules_Auto_Merge` | VIBECOPS | Historical |
 
 ## STATE.md Flow
 
@@ -63,11 +73,11 @@ VibecOPS GUI / vibecops.rx-fit.com
   jules-pr-tests.yml → smoke test
          │
          ▼
-  auto-merge-jules.yml → squash merge to main
+  command-center executor → exact-head validation and governed merge
          │
          ▼
   Next task in STATE.md queued
 ```
 
 ---
-*Maintained by Antigravity (local agent). Last updated: 2026-05-17.*
+*Maintained by Antigravity (local agent). Last updated: 2026-09-04.*
